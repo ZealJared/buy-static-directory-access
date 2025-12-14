@@ -1,0 +1,30 @@
+services:
+  wordpress:
+    build: ./wp
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8080:80"
+    volumes:
+      - ./wp/wp-content/course-content:/var/www/html/wp-content/course-content
+      - ./wp/wp-content/plugins/course-access:/var/www/html/wp-content/plugins/course-access
+      - ./wp/wp-setup-extra.sh:/var/www/html/wp-setup-extra.sh
+      - ./wp/wp-content/debug-config.php:/var/www/html/wp-content/debug-config.php
+    environment:
+      WORDPRESS_DB_HOST: db
+      WORDPRESS_DB_USER: wp
+      WORDPRESS_DB_PASSWORD: wp
+      WORDPRESS_DB_NAME: wp
+  db:
+    image: mysql:8
+    environment:
+      MYSQL_DATABASE: wp
+      MYSQL_USER: wp
+      MYSQL_PASSWORD: wp
+      MYSQL_ROOT_PASSWORD: root
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "wp", "-pwp"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
