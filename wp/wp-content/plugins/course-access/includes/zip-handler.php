@@ -47,26 +47,37 @@ function ca_handle_zip_upload($file, $folder, $post_id) {
 		}
 	}
 
-	// Always extract to a subdirectory named after the product ID
-	// If the ZIP contains a single top-level folder matching the product ID, extract as normal
-	// If not, extract all contents into the $course_dir/{product_id}/
-	$has_folder = false;
+	// Check if the ZIP contains only a single top-level directory
+	$top_dirs = [];
 	for ($i = 0; $i < $zip->numFiles; $i++) {
 		$entry = $zip->getNameIndex($i);
-		if (preg_match('#^' . preg_quote($folder, '#') . '/#', $entry)) {
-			$has_folder = true;
-			break;
+		$parts = explode('/', $entry);
+		if (count($parts) > 1 && $parts[0] !== '') {
+			$top_dirs[$parts[0]] = true;
 		}
 	}
-
-	if ($has_folder) {
-		// ZIP already contains a top-level folder matching the product ID, extract as normal
-		if (!$zip->extractTo($base_dir)) {
-			$zip->close();
-			return new WP_Error('zip_extract', 'Failed to extract ZIP.');
+	if (count($top_dirs) === 1) {
+		// Only one top-level directory, extract its contents into $course_dir
+		$top_dir = array_keys($top_dirs)[0];
+		for ($i = 0; $i < $zip->numFiles; $i++) {
+			$entry = $zip->getNameIndex($i);
+			if (strpos($entry, $top_dir . '/') === 0) {
+				$relative = substr($entry, strlen($top_dir) + 1);
+				if ($relative === false) continue;
+				$target = $course_dir . $relative;
+				if (substr($entry, -1) === '/') {
+					wp_mkdir_p($target);
+				} elseif ($relative !== '') {
+					$dir = dirname($target);
+					if (!is_dir($dir)) {
+						wp_mkdir_p($dir);
+					}
+					copy('zip://' . $tmp . '#' . $entry, $target);
+				}
+			}
 		}
 	} else {
-		// Extract all files into $course_dir
+		// Extract all files into $course_dir as before
 		for ($i = 0; $i < $zip->numFiles; $i++) {
 			$entry = $zip->getNameIndex($i);
 			$target = $course_dir . $entry;

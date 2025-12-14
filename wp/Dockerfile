@@ -15,6 +15,10 @@ RUN apt-get update \
 RUN sed -i '/<Directory \/var\/www\/>/,/<\/Directory>/ s/AllowOverride None/AllowOverride All/' /etc/apache2/apache2.conf \
     && echo '<Directory /var/www/html/>\n    Options Indexes FollowSymLinks\n    AllowOverride All\n    Require all granted\n</Directory>' >> /etc/apache2/apache2.conf
 
+
+# Set PHP upload and post size limits for large file uploads
+RUN echo "upload_max_filesize = 10G\npost_max_size = 10G\nmax_execution_time = 0" > /usr/local/etc/php/conf.d/99-custom-uploads.ini
+
 # Add custom init script to the official entrypoint init directory
 COPY docker-entrypoint-init.sh /docker-entrypoint-init.d/10-custom-init.sh
 RUN chmod +x /docker-entrypoint-init.d/10-custom-init.sh

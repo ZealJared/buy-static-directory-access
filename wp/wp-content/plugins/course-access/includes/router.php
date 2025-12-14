@@ -1,4 +1,12 @@
 <?php
+// Disable canonical redirects for course file URLs to prevent trailing slash
+add_filter('redirect_canonical', function($redirect_url, $requested_url) {
+	// Only affect URLs that look like /courses/{id}/... with a file extension
+	if (preg_match('#/courses/\d+/.+\.[a-zA-Z0-9]+$#', $requested_url)) {
+		return false;
+	}
+	return $redirect_url;
+}, 10, 2);
 // Request handling and file serving for Course Access plugin
 
 // Run router on template_redirect (pretty URLs) and on init (query string access)
@@ -43,12 +51,38 @@ function ca_course_router_handler()
 		       exit;
 	       }
 
-	// Support course_path via query string as well
-	$req_path = get_query_var('course_path');
-	if (!$req_path && isset($_GET['course_path'])) {
-		$req_path = ltrim($_GET['course_path'], '/\\');
-	}
-	$req_path = $req_path ? $req_path : '';
+	       // Support course_path via query string as well
+	       $req_path = get_query_var('course_path');
+	       if (!$req_path && isset($_GET['course_path'])) {
+		       $req_path = ltrim($_GET['course_path'], '/\\');
+	       }
+
+	       // Find course by slug
+	       $course = get_page_by_path($course_slug, OBJECT, 'course');
+	       if (!$course) {
+		       $msg = 'No course found for slug: ' . $course_slug;
+		       // ...existing code...
+	       }
+	       $course_id = $course->ID;
+
+	       // If no req_path, use default route from post meta (or fallback)
+		       if (!$req_path) {
+			       $default_route = get_post_meta($course_id, 'course_default_route', true);
+			       if (!$default_route) {
+				       $default_route = '/html/start.html';
+			       }
+				   // Instead of serving the file as the root, redirect to the correct path (no trailing slash)
+				   // Ensure the redirect uses /courses/ (plural) in the URL
+				   $permalink = rtrim(get_permalink($course_id), '/');
+				   $default_route_clean = ltrim($default_route, '/');
+				   $redirect_path = preg_replace('#/course/#', '/courses/', $permalink) . '/' . $default_route_clean;
+				   // Remove trailing slash if present (always, for file URLs)
+				   $redirect_path = rtrim($redirect_path, '/');
+				   // Prevent WordPress canonical redirect by removing the filter before redirect
+				   remove_filter('template_redirect', 'redirect_canonical');
+				   header('Location: ' . $redirect_path, true, 301);
+				   exit;
+		       }
 
 	// Find course by slug
 	$course = get_page_by_path($course_slug, OBJECT, 'course');
@@ -88,7 +122,8 @@ function ca_course_router_handler()
 	$base_dir = CA_CONTENT_DIR . $product_id . '/';
 
 	// Sanitize and resolve path
-	$fs_path = $base_dir . $req_path;
+	$decoded_req_path = urldecode($req_path);
+	$fs_path = $base_dir . $decoded_req_path;
 	$base_dir_real = realpath($base_dir);
 	$fs_path_real = realpath($fs_path);
 
