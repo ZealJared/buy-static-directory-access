@@ -2,3 +2,5 @@ cookies.txt
 lastlogs.txt
 *.zip
 wp/wp-content/course-content/
+node_modules/
+tests/*.png

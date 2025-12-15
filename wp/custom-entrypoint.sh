@@ -35,8 +35,6 @@ else
 fi
 
 # Start post-setup script in background (waits for Apache)
-echo "[WRAPPER] Starting post-start-setup.sh in background..."
-/wp/post-start-setup.sh &
 
 # Hand off to the official WordPress entrypoint and start Apache
 exec /usr/local/bin/docker-entrypoint.sh apache2-foreground

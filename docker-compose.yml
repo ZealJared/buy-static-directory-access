@@ -11,6 +11,7 @@ services:
       - ./wp/wp-content/plugins/course-access:/var/www/html/wp-content/plugins/course-access
       - ./wp/wp-setup-extra.sh:/var/www/html/wp-setup-extra.sh
       - ./wp/wp-content/debug-config.php:/var/www/html/wp-content/debug-config.php
+      - ./sample-course.zip:/var/www/html/sample-course.zip
     environment:
       WORDPRESS_DB_HOST: db
       WORDPRESS_DB_USER: wp

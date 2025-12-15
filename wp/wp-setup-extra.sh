@@ -64,13 +64,11 @@ if [ -n "$NONCE" ]; then
     -d '{"value":"US:OR"}' \
     "$SITE_URL/wp-json/wc-analytics/settings/general/woocommerce_default_country?_locale=user"
   # Initialize 'coming soon' state via launch-your-store endpoint
-  curl -s -b cookies.txt -H "x-wp-nonce: $NONCE" -X POST \
-    "$SITE_URL/wp-json/wc-admin/launch-your-store/initialize-coming-soon?_locale=user"
-  echo "WooCommerce onboarding REST API steps completed."
-  curl -s -b cookies.txt -H "Content-Type: multipart/form-data; boundary=----WebKitFormBoundarySetupExtra" -X POST \
-    --data-binary $'------WebKitFormBoundarySetupExtra\r\nContent-Disposition: form-data; name="woocommerce_coming_soon"\r\n\r\nyes\r\n------WebKitFormBoundarySetupExtra\r\nContent-Disposition: form-data; name="woocommerce_store_pages_only"\r\n\r\nyes\r\n------WebKitFormBoundarySetupExtra\r\nContent-Disposition: form-data; name="woocommerce_private_link"\r\n\r\nno\r\n------WebKitFormBoundarySetupExtra\r\nContent-Disposition: form-data; name="save"\r\n\r\nSave changes\r\n------WebKitFormBoundarySetupExtra\r\nContent-Disposition: form-data; name="_wpnonce"\r\n\r\n'$NONCE$'\r\n------WebKitFormBoundarySetupExtra\r\nContent-Disposition: form-data; name="_wp_http_referer"\r\n\r\n/wp-admin/admin.php?page=wc-settings&tab=site-visibility\r\n------WebKitFormBoundarySetupExtra--\r\n' \
-    "$SITE_URL/wp-admin/admin.php?page=wc-settings&tab=site-visibility"
-  echo "WooCommerce Coming Soon mode set to store pages only."
+  # Disable 'coming soon' state using wp option update (more reliable than REST API)
+  wp option update woocommerce_coming_soon no
+  wp option update woocommerce_store_pages_only no
+  wp option update woocommerce_private_link no
+  echo "WooCommerce Coming Soon mode disabled. Store is live."
 else
   echo "No nonce found. Skipping WooCommerce onboarding REST API steps."
 fi
@@ -139,6 +137,8 @@ echo "Setting product $PRODUCT_ID as virtual (not downloadable) and type simple.
 wp post meta update $PRODUCT_ID _virtual yes
 wp post meta update $PRODUCT_ID _product_type simple
 wp post meta update $PRODUCT_ID _sku test-course-product
+wp post meta update $PRODUCT_ID _regular_price 10.00
+wp post meta update $PRODUCT_ID _price 10.00
 wp post term set $PRODUCT_ID product_type simple
 
 # Clear WooCommerce product cache and transients
@@ -161,6 +161,27 @@ echo "testuser ID: $USER_ID"
 echo "Flushing permalinks..."
 wp rewrite structure '/%postname%/' --hard
 wp rewrite flush --hard
+
+
+# Create no-access user if not exists
+echo "Checking for noaccessuser..."
+if ! wp user get noaccessuser > /dev/null 2>&1; then
+  echo "Creating noaccessuser..."
+  wp user create noaccessuser noaccess@example.com --user_pass=NoAccess123 --role=customer
+fi
+
+
+# Automate Course Creation
+COURSE_SLUG="test-course-product-directory-access"
+PRODUCT_SLUG="test-course-product"
+echo "Checking for course '$COURSE_SLUG'..."
+
+# Get Product ID for linking
+PRODUCT_ID=$(wp post list --post_type=product --name="$PRODUCT_SLUG" --field=ID --format=ids)
+
+    #     echo "Course '$COURSE_SLUG' already exists."
+    # fi
+# fi
 
 
 # Ensure WooCommerce CLI is available before running wc commands
